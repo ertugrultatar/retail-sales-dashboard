@@ -1,90 +1,91 @@
-import pandas as pd
+import matplotlib
+
+matplotlib.use("Agg")  # save charts to files without opening windows
+
 import matplotlib.pyplot as plt
 import os
 
+from analysis import df, monthly_sales, yearly_sales, sales_by_category, top_products
+
 current_dir = os.path.dirname(__file__)
+images_dir = os.path.join(current_dir, "..", "images")
 
-df = pd.read_csv(
-    os.path.join(current_dir, "..", "data", "retail_sales_cleaned.csv")
-)
 
-df["order_date"] = pd.to_datetime(df["order_date"])
+def save_chart(filename):
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(images_dir, filename), dpi=150)
+    plt.close()
+    print(f"Saved images/{filename}")
 
 
 # 1. Yearly Sales
-yearly_sales = (
-    df.groupby(df["order_date"].dt.to_period("Y"))["sales_amount"]
-    .sum()
-    .reset_index()
-)
+yearly = yearly_sales(df)
 
 plt.figure(figsize=(8,5))
 
 plt.bar(
-    yearly_sales["order_date"].astype(str),
-    yearly_sales["sales_amount"]
+    yearly["order_date"].astype(str),
+    yearly["sales_amount"]
 )
 
 plt.title("Yearly Sales")
 plt.xlabel("Year")
-plt.ylabel("Sales")
+plt.ylabel("Sales (₹)")
 
-plt.xticks(rotation=45)
-plt.tight_layout()
-
+save_chart("yearly_sales.png")
 
 
+# 2. Monthly Sales vs Profit (chronological, not combined across years)
+monthly = monthly_sales(df)
+months = monthly["order_date"].dt.to_timestamp()
+
+plt.figure(figsize=(12,5))
+
+plt.plot(months, monthly["sales_amount"], label="Sales")
+plt.plot(months, monthly["profit"], label="Profit")
+
+plt.title("Monthly Sales vs Profit")
+plt.xlabel("Month")
+plt.ylabel("Amount (₹)")
+plt.legend()
+
+save_chart("monthly_sales_profit.png")
 
 
-# 2. Sales by Category
-sales_by_category = (
-    df.groupby("product_category")["sales_amount"]
-    .sum()
-    .sort_values(ascending=False)
-    .reset_index()
-)
+# 3. Sales by Category
+by_category = sales_by_category(df)
 
 plt.figure(figsize=(8,5))
 
 plt.bar(
-    sales_by_category["product_category"],
-    sales_by_category["sales_amount"]
+    by_category["product_category"],
+    by_category["sales_amount"]
 )
 
 plt.title("Sales by Category")
 plt.xlabel("Category")
-plt.ylabel("Sales")
+plt.ylabel("Sales (₹)")
 
 plt.xticks(rotation=45)
-plt.tight_layout()
+
+save_chart("sales_by_category.png")
 
 
+# 4. Top Products
+top = top_products(df)
 
-
-# 3. Top Products
-top_products = (
-    df.groupby(["product_name","product_category"])["sales_amount"]
-    .sum()
-    .sort_values(ascending=False)
-    .head(10)
-    .reset_index()
-)
 plt.figure(figsize=(10,5))
 
 plt.bar(
-    top_products["product_name"],
-    top_products["sales_amount"]
+    top["product_name"],
+    top["sales_amount"]
 )
 
-plt.title("Top 10 Products")
+plt.title("Top 10 Products by Sales")
 plt.xlabel("Product")
-plt.ylabel("Sales")
+plt.ylabel("Sales (₹)")
 
 plt.xticks(rotation=90)
-plt.tight_layout()
 
-
-
-
-# Show all charts
-plt.show()
+save_chart("top_products.png")

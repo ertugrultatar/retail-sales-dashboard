@@ -13,11 +13,22 @@ I took a retail sales dataset through the full analytics pipeline — from messy
 
 ## Key Insights
 
-- **£185.4M** in total sales and **£46.7M** in profit, a **25.2%** overall profit margin, across **20,896** units sold
-- **Electronics** is the strongest category by profit (~£17.8M), ahead of Furniture (~£15.2M) and Sports (~£6.7M)
-- **South** is the top-performing region by sales, ahead of North, West, East, and Central
-- Best-selling individual products are the **Laptop**, **Smartwatch**, and **Headphones**
-- Monthly sales and profit move differently through the year — sales peak early and late, while profit holds a steadier mid-year climb, which is worth digging into further (discounting patterns, seasonal costs)
+All amounts are in Indian Rupees (₹) — the dataset covers orders across Indian cities from 2020 to 2024.
+
+- **₹231.2M** in total sales and **₹42.8M** in profit, an **18.5%** overall profit margin, across **4,066** orders and **22,373** units sold
+- **Electronics drives 59% of sales (₹137.5M) but only earns a 12% margin.** Furniture brings in less than half the revenue (₹56.4M) yet nearly the same profit (₹15.9M vs ₹16.6M) at a 28% margin
+- **Groceries contribute almost nothing** — ₹0.87M in sales for ₹0.07M profit (8% margin)
+- **Sales are seasonal: Q2 and Q3 are ~50% bigger than Q1 and Q4** (₹69M vs ₹46M), and this holds in every year from 2020 to 2024. Order counts are similar each quarter — the peak comes from higher-value purchases, while the margin stays flat at ~18.5%
+- **Discounts don't erode margin** — orders with 30–40% discounts earn the same ~18.5% margin as orders with under 10%
+- **South** is the top region (₹52.8M), and **Central** the weakest (₹38.2M)
+- **14.5% of orders are returned**, highest for Electronics (16.3%)
+
+### Recommendations
+
+1. **Grow Furniture** — it earns more than twice Electronics' margin per ₹ of sales, so marketing spend there returns more profit
+2. **Review Electronics pricing and returns** — it's the biggest category, but has the thinnest margin (outside Groceries) and the highest return rate
+3. **Plan stock and staffing around the Q2–Q3 peak**, and use Q1/Q4 for promotions to smooth demand
+4. **Reassess Groceries** — at an 8% margin it adds volume but almost no profit
 
 ## Tools & Tech Stack
 
@@ -35,18 +46,17 @@ retail-sales-dashboard/
 ├── data/                        # Cleaned dataset
 │   └── retail_sales_cleaned.csv
 ├── python/                      # Data cleaning & analysis scripts
+│   ├── main.py                  # Runs the full pipeline end to end
 │   ├── cleaning.py              # Raw data → cleaned dataset
-│   ├── analysis.py
 │   ├── create_database.py       # Loads cleaned data into SQLite
-│   ├── main.py
-│   └── visualisation.py         # Matplotlib charts
+│   ├── analysis.py              # Summary tables (pandas)
+│   └── visualisation.py         # Matplotlib charts → images/
 ├── sql/                         # SQL analysis queries
 │   ├── 01_customer_analysis.sql
 │   ├── 02_product_analysis.sql
 │   ├── 03_sales_analysis.sql
-│   ├── 04_operations_analysis.sql
-│   └── retail_sales.db
-├── images/                      # Dashboard screenshots
+│   └── 04_operations_analysis.sql
+├── images/                      # Dashboard screenshot & generated charts
 │   └── dashboard.png
 ├── requirements.txt
 └── README.md
@@ -54,27 +64,37 @@ retail-sales-dashboard/
 
 ## Data Cleaning
 
-The raw dataset came in with missing order dates, invalid ages and quantities, and duplicate rows. The cleaning script:
+The raw dataset (4,310 rows) came in with blank rows, invalid placeholder values (negative ages, age `999`, quantity `999`), inconsistent casing (`delivered` vs `Delivered`), mixed date formats, and duplicate rows. The cleaning script:
 
-- Removes duplicate orders
-- Drops rows with missing `order_date` (267 rows)
-- Validates `age` and `quantity` fall within realistic ranges
-- Produces a final, analysis-ready dataset of 3,933 orders across 21 columns, with zero remaining nulls
+- Removes blank rows and orders missing an `order_id` or `customer_id`
+- Treats impossible values as missing (ages ≤ 0 or > 120, quantity ≤ 0 or `999`, negative shipping costs)
+- Drops orders with no valid quantity (136 rows) rather than guessing a value
+- Fills other gaps with `Unknown` (text) or the median (numbers)
+- Parses mixed date formats, standardises text casing, and removes 78 duplicate rows
+- Runs validation checks (no nulls, valid ranges, profit never exceeds sales, unique order IDs) before saving
+
+**Result:** 4,066 analysis-ready orders across 21 columns.
+
+> **Note:** `sales_amount` in the source doesn't equal `quantity × unit_price × (1 − discount)`. Because `profit` is derived from the source `sales_amount`, it's kept as provided — recalculating sales alone would make profit exceed sales on some orders.
 
 ## Dashboard
 
-![Dashboard](./images/dashboard.png)
+**[View the interactive dashboard on Tableau Public](https://public.tableau.com/app/profile/ertugrul.tatar/viz/RetailSalesPerformance_17911221081880/RetailSalesPerformance)**
 
-The dashboard is built around one flagship view — **Retail Sales Performance** — with:
+[![Dashboard](./images/dashboard.png)](https://public.tableau.com/app/profile/ertugrul.tatar/viz/RetailSalesPerformance_17911221081880/RetailSalesPerformance)
 
-- **KPI row**: total sales, profit, quantity sold, and profit margin
-- **Monthly Sales & Profit**: dual-axis trend line across the year
-- **Category Performance**: sales and profit broken out by product category
-- **Regional Performance**: sales by region
-- **Top 10 Products by Sales**: best-selling individual products
-- **Filters**: Region, Product Category, and Month, all linked across every chart
+The **Retail Sales Performance** dashboard is built to answer the questions behind the key insights:
 
-An interactive Tableau Public version is on the way — screenshot above for now.
+- **KPI row**: total sales, profit, profit margin, orders, and return rate
+- **Sales & Margin by Category**: revenue bars with margin %, showing where the money is made versus where the profit is made
+- **Monthly Sales Trend (2020–2024)**: month by month, showing the recurring Q2–Q3 peak
+- **Sales by Region**: regional revenue ranking
+- **Return Rate by Category**: which categories lose the most orders to returns
+- **Filters**: Year, Region, and Product Category, linked across every chart
+
+All amounts are in ₹.
+
+Running the pipeline also saves matplotlib charts to `images/` (yearly sales, monthly sales vs profit, sales by category, top products).
 
 ## How to Run This Project
 
@@ -88,17 +108,13 @@ python -m venv .venv
 source .venv/bin/activate       # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# Reproduce the cleaned dataset
-python python/cleaning.py
-
-# Load it into SQLite and run the analysis queries
-python python/create_database.py
-
-# Generate the matplotlib charts
-python python/visualisation.py
+# Run the full pipeline: clean → SQLite → analysis → charts
+python python/main.py
 ```
 
-The Tableau dashboard connects directly to `data/retail_sales_cleaned.csv` — open the workbook in Tableau Public/Desktop to explore it interactively.
+To explore the SQL queries, open `sql/retail_sales.db` (created by the pipeline) in any SQLite client and run the files in `sql/`.
+
+The Tableau dashboard is built on `data/retail_sales_cleaned.csv` and published on [Tableau Public](https://public.tableau.com/app/profile/ertugrul.tatar/viz/RetailSalesPerformance_17911221081880/RetailSalesPerformance), where you can explore it or download the workbook.
 
 ## Data Source
 

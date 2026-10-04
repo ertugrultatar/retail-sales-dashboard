@@ -1,9 +1,12 @@
 import pandas as pd
 import sqlite3
+import os
 
-df = pd.read_csv("data/retail_sales_cleaned.csv")
+current_dir = os.path.dirname(__file__)
 
-conn = sqlite3.connect("sql/retail_sales.db")
+df = pd.read_csv(os.path.join(current_dir, "..", "data", "retail_sales_cleaned.csv"))
+
+conn = sqlite3.connect(os.path.join(current_dir, "..", "sql", "retail_sales.db"))
 
 df.to_sql("retail_sales", conn, if_exists="replace", index=False)
 

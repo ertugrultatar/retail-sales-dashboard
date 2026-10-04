@@ -15,7 +15,7 @@ df["order_date"] = pd.to_datetime(df["order_date"])
 def monthly_sales(df):
 
     return (
-        df.groupby(df["order_date"].dt.to_period("M"))["sales_amount"]
+        df.groupby(df["order_date"].dt.to_period("M"))[["sales_amount", "profit"]]
         .sum()
         .reset_index()
     )
@@ -59,18 +59,21 @@ def regional_sales(df):
         .sort_values(ascending=False)
         .reset_index()
     )
-    
-print("\n=== MONTHLY SALES ===")
-print(monthly_sales(df))
 
-print("\n=== YEARLY SALES ===")
-print(yearly_sales(df))
 
-print("\n=== SALES BY CATEGORY ===")
-print(sales_by_category(df))
+if __name__ == "__main__":
 
-print("\n=== TOP PRODUCTS ===")
-print(top_products(df))
+    print("\n=== MONTHLY SALES ===")
+    print(monthly_sales(df))
 
-print("\n=== REGIONAL SALES ===")
-print(regional_sales(df))
+    print("\n=== YEARLY SALES ===")
+    print(yearly_sales(df))
+
+    print("\n=== SALES BY CATEGORY ===")
+    print(sales_by_category(df))
+
+    print("\n=== TOP PRODUCTS ===")
+    print(top_products(df))
+
+    print("\n=== REGIONAL SALES ===")
+    print(regional_sales(df))
