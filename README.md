@@ -10,6 +10,7 @@ I took a retail sales dataset through the full analytics pipeline — from messy
 2. **Query** — explore customer, product, sales, and operations questions in SQL
 3. **Visualize** — build exploratory charts in matplotlib
 4. **Dashboard** — assemble an interactive Tableau dashboard for at-a-glance business insight
+5. **Ask in plain English** — a local AI model turns questions into SQL and runs them on the database
 
 ## Key Insights
 
@@ -38,6 +39,7 @@ All amounts are in Indian Rupees (₹) — the dataset covers orders across Indi
 | Data storage / querying | SQL (SQLite) |
 | Exploratory visualization | Matplotlib |
 | Interactive dashboard | Tableau |
+| Plain-English questions | Ollama + Qwen2.5-Coder 7B (open-source model from Hugging Face) |
 
 ## Repository Structure
 
@@ -50,7 +52,9 @@ retail-sales-dashboard/
 │   ├── cleaning.py              # Raw data → cleaned dataset
 │   ├── create_database.py       # Loads cleaned data into SQLite
 │   ├── analysis.py              # Summary tables (pandas)
-│   └── visualisation.py         # Matplotlib charts → images/
+│   ├── visualisation.py         # Matplotlib charts → images/
+│   ├── ai_assistant.py          # Ask questions in plain English
+│   └── test_ai_assistant.py     # Checks the AI's answers against known results
 ├── sql/                         # SQL analysis queries
 │   ├── 01_customer_analysis.sql
 │   ├── 02_product_analysis.sql
@@ -96,6 +100,45 @@ All amounts are in ₹.
 
 Running the pipeline also saves matplotlib charts to `images/` (yearly sales, monthly sales vs profit, sales by category, top products).
 
+## AI Assistant
+
+I wanted to be able to ask the data a question without writing SQL every time, so I added a small assistant on top of the database.
+
+```
+Ask a question (or type 'exit'): Which region makes the highest profit?
+AI wrote: SELECT region, SUM(profit) AS total_profit
+FROM retail_sales
+GROUP BY region
+ORDER BY total_profit DESC
+LIMIT 1;
+  region  total_profit
+0  South    9702747.01
+```
+
+### How it works
+
+1. The script reads the table's columns from SQLite and puts them in a prompt with the question.
+2. The model writes a SQL query. It never sees the data itself.
+3. The code strips any formatting from the reply and checks that it's a `SELECT` query. Anything else is blocked.
+4. The query runs on the real database, and the result is printed along with the SQL, so you can see exactly how the answer was produced.
+
+The model only writes SQL. Every number comes from the database. When I asked the model directly for total profit, it confidently said 10,000. The real figure is ₹42.8M. That's the reason for this design.
+
+### Why a local model
+
+It runs on my laptop through Ollama, using Qwen2.5-Coder 7B from Hugging Face. It's free, works offline, and the data never leaves the machine. I first tried Azure OpenAI and the Hugging Face API, but both needed paid credit to run. The model call is one function (`ask_llm`), so switching to a hosted model later is a small change.
+
+### Testing
+
+`test_ai_assistant.py` asks the model questions I already know the answers to from my analysis (top region by profit, total profit) and fails if it gets them wrong. I built the rest of the pipeline first with hard-coded answers in place of the model, so I knew everything else worked before connecting it.
+
+### Limitations
+
+- The 7B model handles simple questions well but struggles with multi-step ones. Asked for each region's total profit plus its top category, it returned every region and category combination instead. The SQL ran without errors, but it answered a different question, so you still need to read the result.
+- It only knows the one table.
+
+Next I want to try the larger 14B model and add a retry step that sends SQL errors back to the model to fix.
+
 ## How to Run This Project
 
 ```bash
@@ -110,6 +153,19 @@ pip install -r requirements.txt
 
 # Run the full pipeline: clean → SQLite → analysis → charts
 python python/main.py
+```
+
+To use the AI assistant, install [Ollama](https://ollama.com), then:
+
+```bash
+# Download the model (about 4.7 GB, one time)
+ollama pull hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF:Q4_K_M
+
+# Ask questions
+python python/ai_assistant.py
+
+# Check its answers
+python python/test_ai_assistant.py
 ```
 
 To explore the SQL queries, open `sql/retail_sales.db` (created by the pipeline) in any SQLite client and run the files in `sql/`.
