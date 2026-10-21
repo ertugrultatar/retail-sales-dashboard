@@ -2,11 +2,12 @@
 
 import sqlite3
 from pathlib import Path
-
 import pandas as pd
+import ollama
 
 DB_PATH = Path(__file__).parent.parent / "sql" / "retail_sales.db"
 TABLE_NAME = "retail_sales"
+MODEL = "hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF:Q4_K_M"
 
 
 def get_schema() -> str:
@@ -29,21 +30,15 @@ Rules:
 Question: {question}"""
 
 
-def ask_llm(question: str) -> str:
-    # TODO: replace with Azure OpenAI call
-    mock_answers = {
-        "What is the total profit?": (
-            "SELECT SUM(profit) FROM retail_sales;"
-        ),
-        "Which region makes the highest profit?": (
-            "SELECT region, SUM(profit) AS total_profit "
-            "FROM retail_sales "
-            "GROUP BY region "
-            "ORDER BY total_profit DESC "
-            "LIMIT 1;"
-        ),
-    }
-    return mock_answers.get(question, "SELECT 'I do not know that question yet';")
+def ask_llm(prompt: str) -> str:
+    response = ollama.chat(
+        model=MODEL,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return response.message.content
+
+def clean_sql(text: str) -> str:
+    return text.replace("```sql", "").replace("```", "").strip()
 
 
 def is_safe(sql: str) -> bool:
@@ -59,7 +54,9 @@ def run_sql(sql: str) -> pd.DataFrame:
 
 def main():
     question = input("Ask a question: ")
-    sql = ask_llm(question)
+    sql = clean_sql(ask_llm(build_prompt(question)))
+    print("AI wrote:", sql)
+
 
     if not is_safe(sql):
         print("Blocked: only SELECT queries are allowed.")
