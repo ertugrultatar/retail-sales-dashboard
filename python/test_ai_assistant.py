@@ -1,13 +1,15 @@
-from ai_assistant import ask_llm, run_sql
+from ai_assistant import build_prompt, ask_llm, clean_sql, run_sql
 
-sql = ask_llm("Which region makes the highest profit?")
-result = run_sql(sql)
 
-assert result["region"][0] == "South"
+def answer(question):
+    sql = clean_sql(ask_llm(build_prompt(question)))
+    return run_sql(sql)
 
-sql = ask_llm("What is the total profit?")
-result = run_sql(sql)
 
-assert round(result["SUM(profit)"][0], 2) == 42763505.14
+result = answer("Which region makes the highest profit?")
+assert result.iloc[0, 0] == "South"
+
+result = answer("What is the total profit?")
+assert round(result.iloc[0, 0], 2) == 42763505.14
 
 print("All tests passed")

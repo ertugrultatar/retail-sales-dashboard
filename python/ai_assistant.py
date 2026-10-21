@@ -37,6 +37,7 @@ def ask_llm(prompt: str) -> str:
     )
     return response.message.content
 
+
 def clean_sql(text: str) -> str:
     return text.replace("```sql", "").replace("```", "").strip()
 
@@ -53,16 +54,23 @@ def run_sql(sql: str) -> pd.DataFrame:
 
 
 def main():
-    question = input("Ask a question: ")
-    sql = clean_sql(ask_llm(build_prompt(question)))
-    print("AI wrote:", sql)
+    while True:
+        question = input("\nAsk a question (or type 'exit'): ")
 
+        if question.lower() == "exit":
+            break
 
-    if not is_safe(sql):
-        print("Blocked: only SELECT queries are allowed.")
-        return
+        sql = clean_sql(ask_llm(build_prompt(question)))
+        print("AI wrote:", sql)
 
-    print(run_sql(sql))
+        if not is_safe(sql):
+            print("Blocked: only SELECT queries are allowed.")
+            continue
+
+        try:
+            print(run_sql(sql))
+        except Exception as error:
+            print("The SQL failed:", error)
 
 
 if __name__ == "__main__":
